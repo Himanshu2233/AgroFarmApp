@@ -211,7 +211,10 @@ fun FeatureCard(
     Card(
         modifier = modifier
             .height(120.dp)
-            .clickable(onClick = { Log.d("Card: ", title) }),
+            .clickable {
+                Log.d("Card", title)
+                onClick()
+            },
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
