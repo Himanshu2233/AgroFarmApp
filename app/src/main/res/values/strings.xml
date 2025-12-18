@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">AgroFarm</string>
+    <string name="title_activity_register">Register</string>
+    <string name="title_activity_login">LoginActivity</string>
+    <string name="title_activity_splash_screen">SplashScreen</string>
+    <string name="title_activity_home_screen">HomeScreen</string>
+    <string name="title_activity_register_screen">RegisterScreen</string>
+    <string name="title_activity_login_screen">LoginScreen</string>
+    <string name="title_activity_forget_password">ForgetPassword</string>
+    <string name="title_activity_profile_screen">ProfileScreen</string>
+    <string name="title_activity_weather">WeatherActivity</string>
+    <string name="title_activity_profile">ProfileActivity</string>
+    <string name="title_activity_crops_details">CropsDetails</string>
+    <string name="title_activity_cattle">CattleActivity</string>
+    <string name="title_activity_reports">ReportsActivity</string>
+    <string name="title_activity_settings">SettingsActivity</string>
+    <string name="title_activity_catlee_copy">catleeActivityCopy</string>
+</resources>

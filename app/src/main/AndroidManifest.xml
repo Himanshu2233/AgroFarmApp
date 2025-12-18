@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" >
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@drawable/logo"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/logo"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AgroFarm" >
+        <activity
+            android:name=".view.CattleActivity"
+            android:exported="false"
+            android:label="@string/title_activity_cattle"
+            android:theme="@style/Theme.AgroFarm" />
+        <!-- <activity -->
+        <!-- android:name=".view.catleeActivityCopy" -->
+        <!-- android:exported="false" -->
+        <!-- android:label="@string/title_activity_catlee_copy" -->
+        <!-- android:theme="@style/Theme.AgroFarm" /> -->
+        <activity
+            android:name=".view.SettingsActivity"
+            android:exported="false"
+            android:label="@string/title_activity_settings"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
+            android:name=".view.ReportsActivity"
+            android:exported="false"
+            android:label="@string/title_activity_reports"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
+            android:name=".view.CropsDetails"
+            android:exported="false"
+            android:label="@string/title_activity_crops_details"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
+            android:name=".view.ProfileActivity"
+            android:exported="false"
+            android:label="@string/title_activity_profile"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
+            android:name=".view.WeatherActivity"
+            android:exported="false"
+            android:label="@string/title_activity_weather"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
+            android:name=".view.ForgetPassword"
+            android:exported="false"
+            android:label="@string/title_activity_forget_password"
+            android:theme="@style/Theme.AgroFarm" >
+
+            <!-- <intent-filter> -->
+            <!-- <action android:name="android.intent.action.MAIN" /> -->
+
+
+            <!-- <category android:name="android.intent.category.LAUNCHER" /> -->
+            <!-- </intent-filter> -->
+        </activity>
+        <activity
+            android:name=".view.LoginScreen"
+            android:exported="false"
+            android:label="@string/title_activity_login_screen"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
+            android:name=".view.RegisterScreen"
+            android:exported="false"
+            android:label="@string/title_activity_register_screen"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
+            android:name=".view.SplashScreen"
+            android:exported="true"
+            android:label="@string/title_activity_splash_screen"
+            android:theme="@style/Theme.AgroFarm" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".view.HomeScreen"
+            android:exported="false"
+            android:label="@string/title_activity_home_screen"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
+            android:name=".view.MainActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.AgroFarm" >
+
+            <!-- <intent-filter> -->
+            <!-- <action android:name="android.intent.action.MAIN" /> -->
+
+
+            <!-- <category android:name="android.intent.category.LAUNCHER" /> -->
+            <!-- </intent-filter> -->
+        </activity>
+    </application>
+
+</manifest>

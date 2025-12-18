@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "672361477556",
+    "firebase_url": "https://agrofarm-4f6ea-default-rtdb.firebaseio.com",
+    "project_id": "agrofarm-4f6ea",
+    "storage_bucket": "agrofarm-4f6ea.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:672361477556:android:01a51881238697c184aee1",
+        "android_client_info": {
+          "package_name": "com.example.agrofarm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBy7SR93_eObKadtgRUGzZLYGr3dsvE8Ak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
