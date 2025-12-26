@@ -54,6 +54,8 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
+    implementation("com.cloudinary:cloudinary-android:2.1.0")
+    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     testImplementation(libs.junit)
