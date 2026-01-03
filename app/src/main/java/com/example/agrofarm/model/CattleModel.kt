@@ -8,7 +8,9 @@ data class CattleModel(
     val breed: String = "",
     val age: Int = 0,
     val healthStatus: String = "",
-    val lastCheckup: String = ""
+    val lastCheckup: String = "",
+    // ✅ ADDED: Field to store the image URL from Cloudinary
+    val imageUrl: String = ""
 ) {
     fun toMap(): Map<String, Any> {
         return mapOf(
@@ -19,7 +21,8 @@ data class CattleModel(
             "breed" to breed,
             "age" to age,
             "healthStatus" to healthStatus,
-            "lastCheckup" to lastCheckup
+            "lastCheckup" to lastCheckup,
+            "imageUrl" to imageUrl
         )
     }
 }
