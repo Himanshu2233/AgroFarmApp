@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">AgroFarm</string>
+    <string name="app_name">Agrofarm</string>
     <string name="title_activity_register">Register</string>
     <string name="title_activity_login">LoginActivity</string>
     <string name="title_activity_splash_screen">SplashScreen</string>
@@ -17,4 +17,5 @@
     <string name="title_activity_catlee_copy">catleeActivityCopy</string>
     <string name="title_activity_crops">CropsActivity</string>
     <string name="title_activity_edit_profile">EditProfileActivity</string>
+    <string name="title_activity_cattle_details">CattleDetailsActivity</string>
 </resources>

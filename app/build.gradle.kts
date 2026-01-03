@@ -7,9 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.agrofarm"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.agrofarm"
@@ -51,11 +49,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
     implementation("com.cloudinary:cloudinary-android:2.1.0")
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     testImplementation(libs.junit)
