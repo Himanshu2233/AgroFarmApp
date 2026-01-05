@@ -1,21 +1,26 @@
 package com.example.agrofarm.view
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -24,16 +29,26 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.agrofarm.R
+import com.example.agrofarm.repository.UserRepoImpl
 import com.example.agrofarm.ui.theme.AgroFarmTheme
-
+import com.example.agrofarm.ui.theme.ThemeManager
+import com.example.agrofarm.viewmodel.UserViewModel
 
 class HomeScreen : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        
+        // Initialize theme manager
+        ThemeManager.init(this)
+        
         setContent {
-            AgroFarmTheme {
-                HomeContent()
+            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
+            
+            AgroFarmTheme(darkTheme = isDarkMode) {
+                HomeContent(
+                    isDarkMode = isDarkMode,
+                    onToggleDarkMode = { ThemeManager.toggleDarkMode() }
+                )
             }
         }
     }
@@ -41,44 +56,42 @@ class HomeScreen : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeContent() {
+fun HomeContent(
+    isDarkMode: Boolean = false,
+    onToggleDarkMode: () -> Unit = {}
+) {
     val context = LocalContext.current
+    val userViewModel = remember { UserViewModel(UserRepoImpl()) }
+    
+    // Animation for the theme toggle icon
+    val rotationAngle by animateFloatAsState(
+        targetValue = if (isDarkMode) 180f else 0f,
+        label = "rotation"
+    )
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "AgroFarm",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
+                title = { Text("AgroFarm", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF4CAF50),
+                    containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White
                 ),
                 actions = {
-                    IconButton(onClick = {
-                        val intent = Intent(context, ProfileActivity::class.java)
-                        context.startActivity(intent)
-                    }) {
+                    // Dark Mode Toggle
+                    IconButton(onClick = onToggleDarkMode) {
                         Icon(
-                            Icons.Default.Person,
-                            contentDescription = "Profile",
-                            tint = Color.White
+                            imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = if (isDarkMode) "Switch to Light Mode" else "Switch to Dark Mode",
+                            tint = Color.White,
+                            modifier = Modifier.rotate(rotationAngle)
                         )
                     }
+                    // Profile
                     IconButton(onClick = {
-                        // Logout - go back to MainActivity
-                        val intent = Intent(context, MainActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        context.startActivity(intent)
+                        context.startActivity(Intent(context, ProfileActivity::class.java))
                     }) {
-                        Icon(
-                            Icons.Default.ExitToApp,
-                            contentDescription = "Logout",
-                            tint = Color.White
-                        )
+                        Icon(Icons.Default.Person, "Profile", tint = Color.White)
                     }
                 }
             )
@@ -90,110 +103,60 @@ fun HomeContent() {
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // Welcome Card
+            // Welcome Card - uses theme colors
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFE8F5E9)
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Welcome Back!",
+                        "Welcome Back!",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2E7D32)
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Manage your farm efficiently",
+                        "Manage your farm efficiently",
                         fontSize = 14.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
                 }
             }
 
-            // Features Grid
             Text(
-                text = "Farm Management",
+                "Farm Management",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    FeatureCard(
-                        title = "Crops",
-                        iconRes = R.drawable.crop,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        val intent = Intent(context, CropsActivity::class.java)
-                        context.startActivity(intent)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FeatureCard("Crops", R.drawable.crop, Modifier.weight(1f)) {
+                        context.startActivity(Intent(context, CropsActivity::class.java))
                     }
-
-                    FeatureCard(
-                        title = "Weather",
-                        iconRes = R.drawable.weather,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        val intent = Intent(context, WeatherActivity::class.java)
-                        context.startActivity(intent)
+                    FeatureCard("Weather", R.drawable.weather, Modifier.weight(1f)) {
+                        context.startActivity(Intent(context, WeatherActivity::class.java))
                     }
                 }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    FeatureCard(
-                        title = "Inventory",
-                        iconRes = R.drawable.inventory,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        val intent = Intent(context, CropsActivity::class.java)
-                        context.startActivity(intent)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FeatureCard("Inventory", R.drawable.inventory, Modifier.weight(1f)) {
+                        context.startActivity(Intent(context, CropsActivity::class.java)) // Placeholder
                     }
-
-                    FeatureCard(
-                        title = "Cattle's",
-                        iconRes = R.drawable.cattle,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        val intent = Intent(context, CattleActivity::class.java)
-                        context.startActivity(intent)
+                    FeatureCard("Cattle", R.drawable.cattle, Modifier.weight(1f)) {
+                        context.startActivity(Intent(context, CattleActivity::class.java))
                     }
                 }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    FeatureCard(
-                        title = "Reports",
-                        iconRes = R.drawable.report,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        val intent = Intent(context, ReportsActivity::class.java)
-                        context.startActivity(intent)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FeatureCard("Reports", R.drawable.report, Modifier.weight(1f)) {
+                        context.startActivity(Intent(context, ReportsActivity::class.java))
                     }
-
-                    FeatureCard(
-                        title = "Settings",
-                        iconRes = R.drawable.setting,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        val intent = Intent(context, SettingsActivity::class.java)
-                        context.startActivity(intent)
+                    FeatureCard("Settings", R.drawable.setting, Modifier.weight(1f)) {
+                        context.startActivity(Intent(context, SettingsActivity::class.java))
                     }
                 }
             }
@@ -202,53 +165,44 @@ fun HomeContent() {
 }
 
 @Composable
-fun FeatureCard(
-    title: String,
-    iconRes: Int,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
+fun FeatureCard(title: String, iconRes: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Card(
-        modifier = modifier
-            .height(120.dp)
-            .clickable {
-                Log.d("Card", title)
-                onClick()
-            },
+        modifier = modifier.height(120.dp).clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp
-        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Image(
-                painter = painterResource(id = iconRes),
-                contentDescription = title,
-                modifier = Modifier.size(40.dp),
-            )
+            Image(painter = painterResource(id = iconRes), contentDescription = title, modifier = Modifier.size(40.dp))
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = title,
+                title,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, name = "Light Mode")
 @Composable
-fun HomeScreenPreview() {
-    AgroFarmTheme {
-        HomeContent()
+fun HomeScreenPreviewLight() {
+    AgroFarmTheme(darkTheme = false) {
+        HomeContent(isDarkMode = false)
+    }
+}
+
+@Preview(showBackground = true, name = "Dark Mode")
+@Composable
+fun HomeScreenPreviewDark() {
+    AgroFarmTheme(darkTheme = true) {
+        HomeContent(isDarkMode = true)
     }
 }
