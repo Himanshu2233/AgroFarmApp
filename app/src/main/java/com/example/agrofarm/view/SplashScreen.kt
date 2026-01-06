@@ -3,88 +3,85 @@ package com.example.agrofarm.view
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.agrofarm.R
+import com.example.agrofarm.repository.UserRepoImpl
 import com.example.agrofarm.ui.theme.AgroFarmTheme
+import com.example.agrofarm.ui.theme.ThemeManager
+import com.example.agrofarm.viewmodel.UserViewModel
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
 class SplashScreen : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        ThemeManager.init(this)
         setContent {
-            AgroFarmTheme {
-                // Get the current activity safely using LocalActivity.current
-                val activity = LocalActivity.current
-
-                // Call SplashScreenContent and provide the navigation logic
-                SplashScreenContent {
-                    // Create an Intent to start MainActivity
-                    val intent = Intent(activity, MainActivity::class.java)
-                    activity?.startActivity(intent)
-                    // Finish the SplashScreen activity so it's removed from the back stack
-                    activity?.finish()
-
-                }
+            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
+            AgroFarmTheme(darkTheme = isDarkMode) {
+                SplashScreenContent()
             }
         }
     }
 }
 
 @Composable
-fun SplashScreenContent(onTimeout: () -> Unit) {
+fun SplashScreenContent() {
+    val userViewModel = remember { UserViewModel(UserRepoImpl()) }
+    val context = LocalContext.current as ComponentActivity
+
+    // ✅ FIXED: This LaunchedEffect now handles intelligent navigation
     LaunchedEffect(Unit) {
-        delay(3000) // 3-second delay
-        onTimeout()
+        // Delay for 2 seconds to show the splash screen
+        delay(2000)
+
+        // Check if a user is currently logged in
+        val currentUser = userViewModel.getCurrentUser()
+
+        val destination = if (currentUser != null) {
+            // If logged in, go to HomeScreen
+            HomeScreen::class.java
+        } else {
+            // If not logged in, go to LoginScreen
+            LoginScreen::class.java
+        }
+
+        // Create the intent and navigate
+        val intent = Intent(context, destination).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        context.startActivity(intent)
+        context.finish() // Close the splash screen so the user can't go back to it
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
+    // Splash screen UI
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.logo),
-                contentDescription = "App Logo",
-                modifier = Modifier.height(200.dp),
-                alignment = Alignment.Center,
-                contentScale = ContentScale.Crop,
-
-                )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "All the Organic product at one place",
-                color = Color.Black,
-                fontSize = 20.sp,
-                textAlign = TextAlign.Center
-            )
-        }
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "App Logo",
+            modifier = Modifier.size(150.dp)
+        )
     }
 }
 
@@ -92,6 +89,6 @@ fun SplashScreenContent(onTimeout: () -> Unit) {
 @Composable
 fun SplashScreenPreview() {
     AgroFarmTheme {
-        SplashScreenContent { }
+        SplashScreenContent()
     }
 }
