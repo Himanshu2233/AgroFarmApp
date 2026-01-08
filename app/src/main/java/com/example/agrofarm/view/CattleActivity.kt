@@ -1,17 +1,22 @@
 package com.example.agrofarm.view
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -27,23 +32,29 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.example.agrofarm.R
 import com.example.agrofarm.model.CattleModel
 import com.example.agrofarm.repository.CattleRepoImpl
 import com.example.agrofarm.repository.UserRepoImpl
 import com.example.agrofarm.ui.theme.AgroFarmTheme
+import com.example.agrofarm.ui.theme.ThemeManager
 import com.example.agrofarm.viewmodel.CattleViewModel
 import com.example.agrofarm.viewmodel.UserViewModel
+import androidx.compose.runtime.collectAsState
 
 class CattleActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ThemeManager.init(this)
         setContent {
-            AgroFarmTheme {
+            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
+            AgroFarmTheme(darkTheme = isDarkMode) {
                 CattleApp(onNavigateBack = { finish() })
             }
         }
@@ -54,7 +65,6 @@ class CattleActivity : ComponentActivity() {
 @Composable
 fun CattleApp(onNavigateBack: () -> Unit) {
     val context = LocalContext.current
-    // ✅ FIXED: ViewModels are created simply, without factories.
     val userViewModel = remember { UserViewModel(UserRepoImpl()) }
     val cattleViewModel = remember { CattleViewModel(CattleRepoImpl()) }
 
@@ -62,46 +72,50 @@ fun CattleApp(onNavigateBack: () -> Unit) {
     val allCattle by cattleViewModel.cattleList.observeAsState(emptyList())
     val isLoading by cattleViewModel.loading.observeAsState(false)
 
-    var showDialog by remember { mutableStateOf<CattleModel?>(null) } // For Add/Edit
+    var cattleToEdit by remember { mutableStateOf<CattleModel?>(null) }
+    var showDialog by remember { mutableStateOf(false) }
+    var showAuthDialog by remember { mutableStateOf(false) }
 
-    // Check authentication and load data
     LaunchedEffect(currentUser) {
         if (currentUser == null) {
-            Toast.makeText(context, "Please login first", Toast.LENGTH_SHORT).show()
-            val intent = Intent(context, LoginScreen::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            context.startActivity(intent)
-            (context as? ComponentActivity)?.finish()
+            showAuthDialog = true
         } else {
             cattleViewModel.getAllCattle()
         }
     }
 
-    // Filter cattle belonging to the current user
-    val myCattle = remember(allCattle, currentUser) {
-        allCattle?.filter { it.farmerId == currentUser?.uid } ?: emptyList()
+    val myCattle = remember(allCattle) {
+        allCattle.filter { it.farmerId == currentUser?.uid }
+    }
+
+    if (showAuthDialog) {
+        AlertDialog(
+            onDismissRequest = { onNavigateBack() },
+            title = { Text("Login Required") },
+            text = { Text("Please login to manage your cattle.") },
+            confirmButton = {
+                Button(onClick = {
+                    val intent = Intent(context, LoginScreen::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    context.startActivity(intent)
+                    (context as? ComponentActivity)?.finish()
+                }) { Text("Go to Login") }
+            },
+            dismissButton = { TextButton(onClick = onNavigateBack) { Text("Cancel") } }
+        )
+        return
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Manage Cattle", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF4CAF50),
-                    titleContentColor = Color.White
-                )
+                title = { Text("Manage Cattle (${myCattle.size})", fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = Color.White)
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showDialog = CattleModel() }, // Open dialog for adding
-                containerColor = Color(0xFF4CAF50)
-            ) {
+            FloatingActionButton(onClick = { cattleToEdit = null; showDialog = true }, containerColor = MaterialTheme.colorScheme.primary) {
                 Icon(Icons.Default.Add, "Add Cattle", tint = Color.White)
             }
         }
@@ -119,14 +133,19 @@ fun CattleApp(onNavigateBack: () -> Unit) {
                     items(myCattle, key = { it.id }) { cattle ->
                         CattleCard(
                             cattle = cattle,
-                            onEdit = { showDialog = cattle },
+                            onEdit = { cattleToEdit = cattle; showDialog = true },
                             onDelete = {
                                 cattleViewModel.deleteCattle(cattle.id) { success, msg ->
                                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     if (success) cattleViewModel.getAllCattle()
                                 }
                             },
-                            onClick = { /* TODO: Navigate to Cattle Details */ }
+                            onClick = {
+                                val intent = Intent(context, CattleDetailsActivity::class.java).apply {
+                                    putExtra(CattleDetailsActivity.EXTRA_CATTLE_ID, cattle.id)
+                                }
+                                context.startActivity(intent)
+                            }
                         )
                     }
                 }
@@ -134,18 +153,19 @@ fun CattleApp(onNavigateBack: () -> Unit) {
         }
     }
 
-    showDialog?.let { cattle ->
+    if (showDialog) {
         AddEditCattleDialog(
-            cattle = cattle,
-            onDismiss = { showDialog = null },
+            cattle = cattleToEdit,
+            cattleViewModel = cattleViewModel,
+            onDismiss = { showDialog = false },
             onConfirm = { updatedCattle ->
-                val finalCattle = if (updatedCattle.id.isBlank()) {
+                val finalCattle = if (cattleToEdit == null) {
                     updatedCattle.copy(farmerId = currentUser!!.uid)
                 } else {
                     updatedCattle
                 }
 
-                if (finalCattle.id.isBlank()) {
+                if (cattleToEdit == null) {
                     cattleViewModel.addCattle(finalCattle) { success, msg ->
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         if (success) cattleViewModel.getAllCattle()
@@ -156,7 +176,8 @@ fun CattleApp(onNavigateBack: () -> Unit) {
                         if (success) cattleViewModel.getAllCattle()
                     }
                 }
-                showDialog = null
+                showDialog = false
+                cattleToEdit = null
             }
         )
     }
@@ -178,28 +199,28 @@ fun CattleCard(
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = painterResource(R.drawable.logo),
+            AsyncImage(
+                model = cattle.imageUrl,
                 contentDescription = cattle.name,
                 modifier = Modifier.size(70.dp).clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.cattle),
+                error = painterResource(id = R.drawable.cattle)
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(cattle.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${cattle.breed} - ${cattle.type}", fontSize = 12.sp, color = Color.Gray)
+                Text(cattle.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                Text("${cattle.breed} - ${cattle.type}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 Spacer(Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Age: ${cattle.age} years", fontSize = 12.sp, color = Color.DarkGray)
-                    Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(6.dp)) {
-                        Text(cattle.healthStatus, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF2E7D32))
+                    Text("Age: ${cattle.age} years", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(6.dp)) {
+                        Text(cattle.healthStatus, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
             Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, "Options")
-                }
+                IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, "Options") }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     DropdownMenuItem(text = { Text("Edit") }, onClick = { onEdit(); showMenu = false }, leadingIcon = { Icon(Icons.Default.Edit, "Edit") })
                     DropdownMenuItem(text = { Text("Delete") }, onClick = { showDeleteDialog = true; showMenu = false }, leadingIcon = { Icon(Icons.Default.Delete, "Delete") })
@@ -219,39 +240,403 @@ fun CattleCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddEditCattleDialog(cattle: CattleModel, onDismiss: () -> Unit, onConfirm: (CattleModel) -> Unit) {
-    val isEditing = cattle.id.isNotBlank()
-    var name by remember { mutableStateOf(cattle.name) }
-    var type by remember { mutableStateOf(cattle.type.ifBlank { "Cow" }) }
-    var breed by remember { mutableStateOf(cattle.breed) }
-    var age by remember { mutableStateOf(if(isEditing) cattle.age.toString() else "") }
-    var healthStatus by remember { mutableStateOf(cattle.healthStatus.ifBlank { "Healthy" }) }
+fun AddEditCattleDialog(
+    cattle: CattleModel?,
+    cattleViewModel: CattleViewModel,
+    onDismiss: () -> Unit,
+    onConfirm: (CattleModel) -> Unit
+) {
+    val context = LocalContext.current
+    val isEditing = cattle != null
+
+    // Dropdown options
+    val cattleTypes = listOf("Cow", "Buffalo", "Goat", "Sheep", "Ox", "Bull", "Calf", "Other")
+    val healthStatuses = listOf("Healthy", "Sick", "Under Treatment", "Recovering", "Pregnant", "Lactating", "Quarantine")
+    val breedsByType = mapOf(
+        "Cow" to listOf("Holstein", "Jersey", "Gir", "Sahiwal", "Red Sindhi", "Tharparkar", "Kankrej", "Crossbred", "Other"),
+        "Buffalo" to listOf("Murrah", "Mehsana", "Surti", "Jaffarabadi", "Nili-Ravi", "Bhadawari", "Other"),
+        "Goat" to listOf("Jamunapari", "Beetal", "Barbari", "Sirohi", "Osmanabadi", "Black Bengal", "Other"),
+        "Sheep" to listOf("Merino", "Rambouillet", "Corriedale", "Nellore", "Deccani", "Marwari", "Other"),
+        "Ox" to listOf("Hallikar", "Amritmahal", "Khillari", "Kangayam", "Other"),
+        "Bull" to listOf("Gir", "Sahiwal", "Ongole", "Hariana", "Other"),
+        "Calf" to listOf("Same as parent breed", "Mixed", "Other"),
+        "Other" to listOf("Mixed Breed", "Unknown", "Other")
+    )
+    val genderOptions = listOf("Male", "Female")
+
+    var name by remember { mutableStateOf(cattle?.name ?: "") }
+    var type by remember { mutableStateOf(cattle?.type ?: cattleTypes[0]) }
+    var breed by remember { mutableStateOf(cattle?.breed ?: "") }
+    var age by remember { mutableStateOf(if (isEditing) cattle?.age.toString() else "") }
+    var healthStatus by remember { mutableStateOf(cattle?.healthStatus ?: healthStatuses[0]) }
+    var lastCheckup by remember { mutableStateOf(cattle?.lastCheckup ?: "") }
+    var gender by remember { mutableStateOf("Female") }
+    var weight by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+
+    var typeExpanded by remember { mutableStateOf(false) }
+    var breedExpanded by remember { mutableStateOf(false) }
+    var healthExpanded by remember { mutableStateOf(false) }
+    var genderExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    var imageUrl by remember { mutableStateOf(cattle?.imageUrl ?: "") }
+    var isUploading by remember { mutableStateOf(false) }
+
+    // Validation
+    val isFormValid = name.isNotBlank() && breed.isNotBlank() && age.toIntOrNull() != null
+
+    // Get breeds for selected type
+    val availableBreeds = breedsByType[type] ?: breedsByType["Other"]!!
+
+    // Reset breed when type changes
+    LaunchedEffect(type) {
+        if (breed !in availableBreeds && !isEditing) {
+            breed = ""
+        }
+    }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let {
+            imageUri = it
+            isUploading = true
+            cattleViewModel.uploadCattleImage(context, it) { url ->
+                isUploading = false
+                if (url != null) {
+                    imageUrl = url
+                } else {
+                    Toast.makeText(context, "Image upload failed", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Date Picker
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+                        lastCheckup = sdf.format(java.util.Date(millis))
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEditing) "Edit Cattle" else "Add Cattle") },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Pets,
+                    contentDescription = null,
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(if (isEditing) "Edit Cattle" else "Add New Cattle", fontWeight = FontWeight.Bold)
+            }
+        },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") })
-                OutlinedTextField(value = type, onValueChange = { type = it }, label = { Text("Type (e.g., Cow)") })
-                OutlinedTextField(value = breed, onValueChange = { breed = it }, label = { Text("Breed") })
-                OutlinedTextField(value = age, onValueChange = { age = it }, label = { Text("Age (years)") })
-                OutlinedTextField(value = healthStatus, onValueChange = { healthStatus = it }, label = { Text("Health Status") })
+                // Image Picker
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clickable { imagePickerLauncher.launch("image/*") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+                ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        if (isUploading) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = Color(0xFF4CAF50))
+                                Spacer(Modifier.height(8.dp))
+                                Text("Uploading...", fontSize = 12.sp, color = Color.Gray)
+                            }
+                        } else if (imageUrl.isNotBlank() || imageUri != null) {
+                            AsyncImage(
+                                model = imageUri ?: imageUrl,
+                                contentDescription = "Cattle Image",
+                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.3f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.CameraAlt, "Change Image", tint = Color.White, modifier = Modifier.size(32.dp))
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.AddPhotoAlternate, "Add Image", modifier = Modifier.size(48.dp), tint = Color(0xFF4CAF50))
+                                Spacer(Modifier.height(8.dp))
+                                Text("Tap to add cattle photo", color = Color.Gray, fontSize = 14.sp)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Name
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name/Tag *") },
+                    leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("e.g., Lakshmi, Tag #101") }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // Type Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = typeExpanded,
+                    onExpandedChange = { typeExpanded = !typeExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = type,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Animal Type") },
+                        leadingIcon = { Icon(Icons.Default.Pets, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = typeExpanded,
+                        onDismissRequest = { typeExpanded = false }
+                    ) {
+                        cattleTypes.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = { type = option; typeExpanded = false },
+                                leadingIcon = {
+                                    if (type == option) Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF4CAF50))
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Breed Dropdown (dynamic based on type)
+                ExposedDropdownMenuBox(
+                    expanded = breedExpanded,
+                    onExpandedChange = { breedExpanded = !breedExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = breed,
+                        onValueChange = { breed = it },
+                        label = { Text("Breed *") },
+                        leadingIcon = { Icon(Icons.Default.Diversity3, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = breedExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        placeholder = { Text("Select or type breed") }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = breedExpanded,
+                        onDismissRequest = { breedExpanded = false }
+                    ) {
+                        availableBreeds.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = { breed = option; breedExpanded = false },
+                                leadingIcon = {
+                                    if (breed == option) Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF4CAF50))
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Age and Gender Row
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = age,
+                        onValueChange = { if (it.isEmpty() || it.all { c -> c.isDigit() }) age = it },
+                        label = { Text("Age (years) *") },
+                        leadingIcon = { Icon(Icons.Default.Cake, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    ExposedDropdownMenuBox(
+                        expanded = genderExpanded,
+                        onExpandedChange = { genderExpanded = !genderExpanded },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        OutlinedTextField(
+                            value = gender,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Gender") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = genderExpanded,
+                            onDismissRequest = { genderExpanded = false }
+                        ) {
+                            genderOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = { gender = option; genderExpanded = false }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Health Status Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = healthExpanded,
+                    onExpandedChange = { healthExpanded = !healthExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = healthStatus,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Health Status") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Favorite,
+                                contentDescription = null,
+                                tint = when (healthStatus) {
+                                    "Healthy" -> Color(0xFF4CAF50)
+                                    "Sick", "Quarantine" -> Color(0xFFF44336)
+                                    "Under Treatment", "Recovering" -> Color(0xFFFF9800)
+                                    else -> Color(0xFF2196F3)
+                                }
+                            )
+                        },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = healthExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = healthExpanded,
+                        onDismissRequest = { healthExpanded = false }
+                    ) {
+                        healthStatuses.forEach { status ->
+                            DropdownMenuItem(
+                                text = { Text(status) },
+                                onClick = { healthStatus = status; healthExpanded = false },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Circle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(12.dp),
+                                        tint = when (status) {
+                                            "Healthy" -> Color(0xFF4CAF50)
+                                            "Sick", "Quarantine" -> Color(0xFFF44336)
+                                            "Under Treatment", "Recovering" -> Color(0xFFFF9800)
+                                            else -> Color(0xFF2196F3)
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Last Checkup Date Picker
+                OutlinedTextField(
+                    value = lastCheckup,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Last Checkup Date") },
+                    leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.EditCalendar, contentDescription = "Select Date")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
+                    placeholder = { Text("Tap to select date") }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // Weight (optional)
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) weight = it },
+                    label = { Text("Weight (kg)") },
+                    leadingIcon = { Icon(Icons.Default.Scale, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("Optional") }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // Notes
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes") },
+                    leadingIcon = { Icon(Icons.Default.Notes, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                    modifier = Modifier.fillMaxWidth().height(80.dp),
+                    maxLines = 3,
+                    placeholder = { Text("Additional notes...") }
+                )
             }
         },
         confirmButton = {
-            Button(onClick = {
-                onConfirm(cattle.copy(
-                    name = name,
-                    type = type,
-                    breed = breed,
-                    age = age.toIntOrNull() ?: 0,
-                    healthStatus = healthStatus
-                ))
-            }) { Text(if (isEditing) "Save" else "Add") }
+            Button(
+                onClick = {
+                    onConfirm(CattleModel(
+                        id = cattle?.id ?: "",
+                        farmerId = cattle?.farmerId ?: "",
+                        name = name.trim(),
+                        type = type,
+                        breed = breed.trim(),
+                        age = age.toIntOrNull() ?: 0,
+                        healthStatus = healthStatus,
+                        lastCheckup = lastCheckup,
+                        imageUrl = imageUrl
+                    ))
+                },
+                enabled = isFormValid && !isUploading,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+            ) {
+                Icon(if (isEditing) Icons.Default.Save else Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(if (isEditing) "Save Changes" else "Add Cattle")
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color.Gray)
+            }
+        }
     )
 }
 
@@ -262,10 +647,10 @@ fun EmptyCattleView(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(Icons.Default.Settings, "Empty", modifier = Modifier.size(80.dp), tint = Color.LightGray) // ✅ FIXED: Changed icon
+        Icon(Icons.Default.Pets, "Empty", modifier = Modifier.size(80.dp), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f))
         Spacer(Modifier.height(16.dp))
-        Text("No cattle added yet", fontSize = 18.sp, color = Color.Gray)
-        Text("Tap + to add cattle", fontSize = 14.sp, color = Color.LightGray)
+        Text("No cattle added yet", fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+        Text("Tap + to add cattle", fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f))
     }
 }
 
