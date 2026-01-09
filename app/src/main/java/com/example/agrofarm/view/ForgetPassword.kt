@@ -23,14 +23,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.agrofarm.repository.UserRepoImpl
 import com.example.agrofarm.ui.theme.AgroFarmTheme
+import com.example.agrofarm.ui.theme.ThemeManager
 import com.example.agrofarm.viewmodel.UserViewModel
+import androidx.compose.runtime.collectAsState
 
 class ForgetPassword : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        ThemeManager.init(this)
         setContent {
-            AgroFarmTheme {
+            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
+            AgroFarmTheme(darkTheme = isDarkMode) {
                 ForgetPasswordContent()
             }
         }
