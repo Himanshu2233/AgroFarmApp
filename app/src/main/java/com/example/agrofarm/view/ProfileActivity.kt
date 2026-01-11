@@ -35,16 +35,20 @@ import com.example.agrofarm.R
 import com.example.agrofarm.model.UserModel
 import com.example.agrofarm.repository.UserRepoImpl
 import com.example.agrofarm.ui.theme.AgroFarmTheme
+import com.example.agrofarm.ui.theme.ThemeManager
 import com.example.agrofarm.viewmodel.UserViewModel
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.runtime.collectAsState
 
 class ProfileActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ThemeManager.init(this)
         setContent {
             val userViewModel = UserViewModel(UserRepoImpl())
+            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
 
-            AgroFarmTheme {
+            AgroFarmTheme(darkTheme = isDarkMode) {
                 ProfileApp(
                     userViewModel = userViewModel,
                     onNavigateBack = { finish() },
@@ -88,7 +92,7 @@ fun ProfileApp(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF4CAF50),
+                    containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White
                 )
             )
@@ -98,7 +102,7 @@ fun ProfileApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFF5F5F5)),
+                .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
             if (isLoading) {
@@ -106,7 +110,11 @@ fun ProfileApp(
             } else if (user != null) {
                 ProfileContent(user = user!!, onEditProfile = onEditProfile)
             } else {
-                Text("Could not load user profile.", textAlign = TextAlign.Center)
+                Text(
+                    "Could not load user profile.",
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
             }
         }
     }
@@ -125,7 +133,7 @@ fun ProfileContent(user: UserModel, onEditProfile: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF4CAF50))
+                .background(MaterialTheme.colorScheme.primary)
                 .padding(vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -158,15 +166,20 @@ fun ProfileContent(user: UserModel, onEditProfile: () -> Unit) {
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Personal Information", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF2E7D32))
+                Text(
+                    "Personal Information",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(Modifier.height(8.dp))
                 ProfileInfoRow("Full Name", user.fullName)
-                Divider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 ProfileInfoRow("Email", user.email)
-                Divider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 ProfileInfoRow("Date of Birth", user.dob.ifBlank { "Not specified" })
             }
         }
@@ -178,7 +191,7 @@ fun ProfileContent(user: UserModel, onEditProfile: () -> Unit) {
                 .fillMaxWidth()
                 .height(50.dp)
                 .padding(horizontal = 16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(Icons.Default.Edit, contentDescription = "Edit Icon", tint = Color.White)
@@ -196,8 +209,21 @@ fun ProfileInfoRow(label: String, value: String) {
             .padding(vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = Color.Gray)
-        Text(text = value, modifier = Modifier.weight(1.5f), fontSize = 16.sp, fontWeight = FontWeight.Normal, textAlign = TextAlign.End)
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(1.5f),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Normal,
+            textAlign = TextAlign.End,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
