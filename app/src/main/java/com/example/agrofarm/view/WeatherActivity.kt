@@ -28,7 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.agrofarm.model.WeatherResponse
 import com.example.agrofarm.ui.theme.AgroFarmTheme
+import com.example.agrofarm.ui.theme.ThemeManager
 import com.example.agrofarm.viewmodel.WeatherViewModel
+import androidx.compose.runtime.collectAsState
 
 
 class WeatherActivity : ComponentActivity() {
@@ -38,6 +40,7 @@ class WeatherActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        ThemeManager.init(this)
 
         // Fetch weather for a default location (e.g., London)
 //        weatherViewModel.fetchWeatherData(51.5072, -0.1276)
@@ -45,7 +48,8 @@ class WeatherActivity : ComponentActivity() {
         weatherViewModel.fetchWeatherData(27.7172, 85.3240)
 
         setContent {
-            AgroFarmTheme {
+            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
+            AgroFarmTheme(darkTheme = isDarkMode) {
                 WeatherApp(weatherViewModel = weatherViewModel, onNavigateBack = { finish() })
             }
         }
@@ -68,7 +72,7 @@ fun WeatherApp(weatherViewModel: WeatherViewModel, onNavigateBack: () -> Unit) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF4CAF50),
+                    containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -108,14 +112,19 @@ fun WeatherScreen(data: WeatherResponse) {
         // Current Weather Card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             elevation = CardDefaults.cardElevation(4.dp)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(data.name, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    data.name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Icon(
                     imageVector = getWeatherIcon(data.weather.firstOrNull()?.icon),
@@ -123,8 +132,17 @@ fun WeatherScreen(data: WeatherResponse) {
                     modifier = Modifier.size(64.dp),
                     tint = Color(0xFFFFC107)
                 )
-                Text("${data.main.temp.toInt()}°C", fontSize = 56.sp, fontWeight = FontWeight.Bold)
-                Text(data.weather.firstOrNull()?.description?.replaceFirstChar { it.uppercase() } ?: "", fontSize = 18.sp, color = Color.Gray)
+                Text(
+                    "${data.main.temp.toInt()}°C",
+                    fontSize = 56.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    data.weather.firstOrNull()?.description?.replaceFirstChar { it.uppercase() } ?: "",
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -132,9 +150,9 @@ fun WeatherScreen(data: WeatherResponse) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    WeatherDetail(icon = Icons.Default.ThumbUp, value = "${data.main.humidity}%", label = "Humidity")
-                    WeatherDetail(icon = Icons.Default.CheckCircle, value = "${data.wind.speed} m/s", label = "Wind")
-                    WeatherDetail(icon = Icons.Default.Check, value = "${data.main.temp_max.toInt()}°/${data.main.temp_min.toInt()}°", label = "High/Low")
+                    WeatherDetail(icon = Icons.Default.WaterDrop, value = "${data.main.humidity}%", label = "Humidity")
+                    WeatherDetail(icon = Icons.Default.Air, value = "${data.wind.speed} m/s", label = "Wind")
+                    WeatherDetail(icon = Icons.Default.Thermostat, value = "${data.main.temp_max.toInt()}°/${data.main.temp_min.toInt()}°", label = "High/Low")
                 }
             }
         }
@@ -147,28 +165,28 @@ fun WeatherScreen(data: WeatherResponse) {
 @Composable
 fun getWeatherIcon(iconCode: String?): ImageVector {
     return when (iconCode) {
-        "01d" -> Icons.Default.Star // clear sky day
-        "01n" -> Icons.Default.Star // clear sky night
-        "02d" -> Icons.Default.Star // few clouds day
-        "02n" -> Icons.Default.Star // few clouds night
-        "03d", "03n" -> Icons.Default.Star // scattered clouds
-        "04d", "04n" -> Icons.Default.Star // broken clouds
-        "09d", "09n" -> Icons.Default.Star // shower rain
-        "10d" -> Icons.Default.Star // rain day
-        "10n" -> Icons.Default.Star // rain night
-        "11d", "11n" -> Icons.Default.Star // thunderstorm
-        "13d", "13n" -> Icons.Default.Star // snow
-        "50d", "50n" -> Icons.Default.Star // mist
-        else -> Icons.Default.ThumbUp
+        "01d" -> Icons.Default.WbSunny // clear sky day
+        "01n" -> Icons.Default.NightsStay // clear sky night
+        "02d" -> Icons.Default.WbCloudy // few clouds day
+        "02n" -> Icons.Default.Cloud // few clouds night
+        "03d", "03n" -> Icons.Default.Cloud // scattered clouds
+        "04d", "04n" -> Icons.Default.Cloud // broken clouds
+        "09d", "09n" -> Icons.Default.Grain // shower rain
+        "10d" -> Icons.Default.Grain // rain day
+        "10n" -> Icons.Default.Grain // rain night
+        "11d", "11n" -> Icons.Default.Thunderstorm // thunderstorm
+        "13d", "13n" -> Icons.Default.AcUnit // snow
+        "50d", "50n" -> Icons.Default.Cloud // mist
+        else -> Icons.Default.WbSunny
     }
 }
 
 @Composable
 fun WeatherDetail(icon: ImageVector, value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, contentDescription = label, tint = Color(0xFF4CAF50))
-        Text(value, fontWeight = FontWeight.Bold)
-        Text(label, fontSize = 12.sp, color = Color.Gray)
+        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.primary)
+        Text(value, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
     }
 }
 
