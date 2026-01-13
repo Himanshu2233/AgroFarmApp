@@ -1,5 +1,7 @@
 package com.example.agrofarm.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -77,5 +79,14 @@ class ProductViewModel(private val repo: ProductRepo) : ViewModel() {
             _message.postValue(msg)
             callback(success, msg)
         }
+    }
+
+    // ✅ FIXED: Added image upload function to the ViewModel
+    fun uploadProductImage(
+        context: Context,
+        imageUri: Uri,
+        callback: (String?) -> Unit
+    ) {
+        repo.uploadProductImage(context, imageUri, callback)
     }
 }
