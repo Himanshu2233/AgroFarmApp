@@ -1,6 +1,6 @@
 package com.example.agrofarm.view
 
-import android.content.Intent
+import android.app.Activity
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -18,7 +18,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
@@ -29,31 +28,33 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.example.agrofarm.R
 import com.example.agrofarm.model.ProductModel
 import com.example.agrofarm.repository.ProductRepoImpl
 import com.example.agrofarm.ui.theme.AgroFarmTheme
+import com.example.agrofarm.ui.theme.ThemeManager
+import com.example.agrofarm.view.CropsDetails.Companion.EXTRA_PRODUCT_ID
 import com.example.agrofarm.viewmodel.ProductViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.runtime.collectAsState
 
 class CropsDetails : ComponentActivity() {
 
     companion object {
+        // Key to pass the product ID between activities
         const val EXTRA_PRODUCT_ID = "extra_product_id"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val productId = intent.getStringExtra(EXTRA_PRODUCT_ID) ?: ""
-
+        ThemeManager.init(this)
         setContent {
-            AgroFarmTheme {
-                CropsDetailsApp(
-                    productId = productId,
-                    onNavigateBack = { finish() }
-                )
+            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
+            AgroFarmTheme(darkTheme = isDarkMode) {
+                // ✅ FIXED: Activity is now very simple.
+                CropsDetailsApp(onNavigateBack = { finish() })
             }
         }
     }
@@ -61,23 +62,25 @@ class CropsDetails : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CropsDetailsApp(
-    productId: String,
-    onNavigateBack: () -> Unit
-) {
+fun CropsDetailsApp(onNavigateBack: () -> Unit) {
     val context = LocalContext.current
+    // ✅ FIXED: ViewModel created simply, without a factory.
     val productViewModel = remember { ProductViewModel(ProductRepoImpl()) }
 
-    val product by productViewModel.product.observeAsState()
-    val isLoading by productViewModel.loading.observeAsState(false)
+    // Get the productId from the activity's intent
+    val activity = (LocalContext.current as? Activity)
+    val productId = remember { activity?.intent?.getStringExtra(EXTRA_PRODUCT_ID) ?: "" }
 
+    val product by productViewModel.product.observeAsState()
+    val isLoading by productViewModel.loading.observeAsState(true) // Start with loading
+
+    // Fetch the product details when the screen is first displayed
     LaunchedEffect(productId) {
         if (productId.isNotBlank()) {
-            android.util.Log.d("CropsDetails", "Loading product: $productId")
             productViewModel.getProductById(productId)
         } else {
-            Toast.makeText(context, "Invalid product ID", Toast.LENGTH_SHORT).show()
-            (context as? ComponentActivity)?.finish()
+            Toast.makeText(context, "Invalid Product ID.", Toast.LENGTH_SHORT).show()
+            onNavigateBack()
         }
     }
 
@@ -85,97 +88,22 @@ fun CropsDetailsApp(
         topBar = {
             TopAppBar(
                 title = { Text("Crop Details", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF4CAF50),
-                    titleContentColor = Color.White
-                )
+                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = Color.White)
             )
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
-                isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = Color(0xFF4CAF50)
-                    )
-                }
-                product == null -> {
-                    // ✅ FIXED: Using drawable image instead of Material Icon
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        // Using logo image with gray tint for error state
-                        Image(
-                            painter = painterResource(R.drawable.logo),
-                            contentDescription = "Product not found",
-                            modifier = Modifier.size(100.dp),
-                            alpha = 0.3f,
-                            colorFilter = ColorFilter.tint(Color.Gray)
-                        )
-                        
-                        Spacer(Modifier.height(24.dp))
-                        
-                        Text(
-                            "Product not found",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center
-                        )
-                        
-                        Spacer(Modifier.height(8.dp))
-                        
-                        Text(
-                            "This product may have been deleted or does not exist",
-                            fontSize = 14.sp,
-                            color = Color.LightGray,
-                            textAlign = TextAlign.Center
-                        )
-                        
-                        Spacer(Modifier.height(24.dp))
-                        
-                        Button(
-                            onClick = onNavigateBack,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4CAF50)
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Go Back to Crops")
-                        }
-                    }
-                }
+                isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                product == null -> NotFoundView(onNavigateBack)
                 else -> {
                     CropsDetailsContent(
                         product = product!!,
-                        onEdit = {
-                            Toast.makeText(context, "Edit functionality", Toast.LENGTH_SHORT).show()
-                        },
                         onDelete = {
                             productViewModel.deleteProduct(product!!.productId) { success, msg ->
                                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                if (success) {
-                                    // Navigate back after successful deletion
-                                    (context as? ComponentActivity)?.finish()
-                                }
+                                if (success) onNavigateBack()
                             }
                         }
                     )
@@ -186,230 +114,98 @@ fun CropsDetailsApp(
 }
 
 @Composable
-fun CropsDetailsContent(
-    product: ProductModel,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
+fun CropsDetailsContent(product: ProductModel, onDelete: () -> Unit) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-    ) {
-        // Product Image
-        Image(
-            painter = painterResource(
-                when (product.category) {
-                    "Vegetables" -> R.drawable.logo
-                    "Fruits" -> R.drawable.logo
-                    "Grains" -> R.drawable.logo
-                    "Dairy" -> R.drawable.logo
-                    else -> R.drawable.logo
-                }
-            ),
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        AsyncImage(
+            model = product.imageUrl,
             contentDescription = product.name,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp),
-            contentScale = ContentScale.Crop
+            modifier = Modifier.fillMaxWidth().height(300.dp),
+            contentScale = ContentScale.Crop,
+            placeholder = painterResource(id = R.drawable.logo),
+            error = painterResource(id = R.drawable.logo)
         )
 
-        // Product Info Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(4.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                // Name and Category
-                Text(
-                    text = product.name,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2E7D32)
-                )
-
+        Card(modifier = Modifier.fillMaxWidth().padding(16.dp), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(4.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(product.name, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(4.dp))
-
-                Surface(
-                    color = Color(0xFFE8F5E9),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = product.category,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF2E7D32)
-                    )
+                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(8.dp)) {
+                    Text(product.category, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
                 }
-
                 Spacer(Modifier.height(16.dp))
-
-                // Price and Quantity
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column {
-                        Text(
-                            "Price",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                        Text(
-                            "₹${String.format("%.2f", product.price)}/${product.unit}",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF4CAF50)
-                        )
+                        Text("Price", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        Text("₹${String.format("%.2f", product.price)}/${product.unit}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
-
                     Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            "Available",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                        Text(
-                            "${product.quantity} ${product.unit}",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (product.quantity > 10) Color(0xFF4CAF50) else Color(0xFFFF5722)
-                        )
+                        Text("Available", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        Text("${product.quantity} ${product.unit}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = if (product.quantity > 10) MaterialTheme.colorScheme.primary else Color(0xFFFF5722))
                     }
                 }
-
                 Spacer(Modifier.height(20.dp))
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(Modifier.height(20.dp))
 
-                // Description
                 if (product.description.isNotBlank()) {
-                    Text(
-                        "Description",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2E7D32)
-                    )
+                    Text("Description", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        product.description,
-                        fontSize = 14.sp,
-                        color = Color.DarkGray,
-                        lineHeight = 20.sp
-                    )
+                    Text(product.description, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), lineHeight = 20.sp)
                     Spacer(Modifier.height(16.dp))
                 }
 
-                // Additional Info
                 InfoRow("Location", product.location.ifBlank { "Not specified" })
                 InfoRow("Harvest Date", formatDate(product.harvestDate))
-                InfoRow(
-                    "Type",
-                    if (product.isOrganic) "🌱 Organic" else "Regular"
-                )
+                InfoRow("Type", if (product.isOrganic) "🌱 Organic" else "Regular")
 
                 Spacer(Modifier.height(24.dp))
 
-                // Action Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onEdit,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF4CAF50)
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Edit, "Edit", modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Edit")
-                    }
-
-                    Button(
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF5722)
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Delete, "Delete", modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Delete")
-                    }
+                Button(onClick = { showDeleteDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f))) {
+                    Icon(Icons.Default.Delete, "Delete")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Delete Product")
                 }
             }
         }
-
-        Spacer(Modifier.height(16.dp))
     }
 
-    // Delete Confirmation Dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Crop?") },
-            text = { 
-                Text("Are you sure you want to delete ${product.name}? This action cannot be undone.") 
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        onDelete()
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
-                ) {
-                    Text("Delete")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            title = { Text("Delete Product?") },
+            text = { Text("Are you sure you want to permanently delete '${product.name}'?") },
+            confirmButton = { Button(onClick = { onDelete(); showDeleteDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { Text("Delete") } },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") } }
         )
     }
 }
 
 @Composable
 fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            label,
-            fontSize = 14.sp,
-            color = Color.Gray,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            value,
-            fontSize = 14.sp,
-            color = Color.DarkGray,
-            fontWeight = FontWeight.SemiBold
-        )
+    Row(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text("$label: ", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 14.sp)
+        Text(value, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+fun NotFoundView(onNavigateBack: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Image(painter = painterResource(R.drawable.logo), "Product not found", modifier = Modifier.size(100.dp), alpha = 0.3f, colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)))
+        Spacer(Modifier.height(24.dp))
+        Text("Product Not Found", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), textAlign = TextAlign.Center)
+        Spacer(Modifier.height(8.dp))
+        Text("This product may have been deleted or does not exist.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f), textAlign = TextAlign.Center)
+        Spacer(Modifier.height(24.dp))
+        Button(onClick = onNavigateBack, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), shape = RoundedCornerShape(12.dp)) { Text("Go Back to Crops") }
     }
 }
 
 fun formatDate(timestamp: Long): String {
     if (timestamp == 0L) return "Not specified"
-    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val sdf = SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
     return sdf.format(Date(timestamp))
 }
 
@@ -417,22 +213,18 @@ fun formatDate(timestamp: Long): String {
 @Composable
 fun CropsDetailsPreview() {
     AgroFarmTheme {
-        CropsDetailsContent(
-            product = ProductModel(
-                productId = "1",
-                farmerId = "farmer1",
-                name = "Fresh Tomatoes",
-                description = "Organic red tomatoes grown in natural conditions",
-                price = 45.0,
-                quantity = 150,
-                category = "Vegetables",
-                unit = "kg",
-                location = "Punjab Farm",
-                isOrganic = true,
-                harvestDate = System.currentTimeMillis()
-            ),
-            onEdit = {},
-            onDelete = {}
+        val previewProduct = ProductModel(
+            productId = "1",
+            name = "Fresh Tomatoes",
+            category = "Vegetable",
+            price = 2.50,
+            quantity = 50,
+            unit = "kg",
+            description = "Juicy, red tomatoes, grown locally and organically. Perfect for salads, sauces, and sandwiches.",
+            isOrganic = true,
+            location = "Kathmandu Valley",
+            harvestDate = System.currentTimeMillis() - (1000 * 60 * 60 * 24 * 2)
         )
+        CropsDetailsContent(product = previewProduct, onDelete = {})
     }
 }
