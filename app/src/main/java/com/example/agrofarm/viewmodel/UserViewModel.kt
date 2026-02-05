@@ -1,5 +1,7 @@
 package com.example.agrofarm.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.example.agrofarm.model.UserModel
@@ -132,5 +134,16 @@ class UserViewModel(private val repo: UserRepo) : ViewModel() {
         callback: (Boolean, String) -> Unit
     ) {
         resetPassword(email, callback)
+    }
+
+    /**
+     * Upload profile image to Cloudinary
+     */
+    fun uploadProfileImage(
+        context: Context,
+        imageUri: Uri,
+        callback: (String?) -> Unit
+    ) {
+        repo.uploadProfileImage(context, imageUri, callback)
     }
 }

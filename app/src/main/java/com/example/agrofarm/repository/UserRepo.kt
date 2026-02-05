@@ -1,5 +1,7 @@
 package com.example.agrofarm.repository
 
+import android.content.Context
+import android.net.Uri
 import com.example.agrofarm.model.UserModel
 import com.google.firebase.auth.FirebaseUser
 
@@ -42,5 +44,12 @@ interface UserRepo {
     fun resetPassword(
         email: String,
         callback: (Boolean, String) -> Unit
+    )
+
+    // Upload profile image to Cloudinary
+    fun uploadProfileImage(
+        context: Context,
+        imageUri: Uri,
+        callback: (String?) -> Unit
     )
 }

@@ -58,8 +58,8 @@ fun SplashScreenContent() {
             // If logged in, go to HomeScreen
             HomeScreen::class.java
         } else {
-            // If not logged in, go to LoginScreen
-            LoginScreen::class.java
+            // If not logged in, go to Welcome Screen (MainActivity)
+            MainActivity::class.java
         }
 
         // Create the intent and navigate

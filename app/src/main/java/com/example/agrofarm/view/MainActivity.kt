@@ -25,8 +25,6 @@ import androidx.compose.ui.unit.sp
 import com.example.agrofarm.R
 import com.example.agrofarm.ui.theme.AgroFarmTheme
 import com.example.agrofarm.ui.theme.ThemeManager
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 
 /**
  * MainActivity - This is the FIRST screen users see when they open your app
@@ -38,8 +36,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         ThemeManager.init(this)
         setContent {
-            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
-            AgroFarmTheme(darkTheme = isDarkMode) {
+            // Always use light theme for welcome screen
+            AgroFarmTheme(darkTheme = false) {
                 WelcomeScreen()
             }
         }

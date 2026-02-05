@@ -77,12 +77,29 @@ fun CropsApp(onNavigateBack: () -> Unit) {
     var productToEdit by remember { mutableStateOf<ProductModel?>(null) }
     var showDialog by remember { mutableStateOf(false) }
     var showAuthDialog by remember { mutableStateOf(false) }
+    
+    // Handle edit intent from details page
+    val activity = (context as? ComponentActivity)
+    val editProductId = remember { activity?.intent?.getStringExtra("EDIT_PRODUCT_ID") }
 
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             productViewModel.getAllProducts()
         } else {
             showAuthDialog = true
+        }
+    }
+    
+    // Open edit dialog if coming from details page
+    LaunchedEffect(editProductId, allProducts) {
+        if (!editProductId.isNullOrBlank() && allProducts.isNotEmpty()) {
+            val productToOpen = allProducts.find { it.productId == editProductId }
+            if (productToOpen != null) {
+                productToEdit = productToOpen
+                showDialog = true
+                // Clear the intent extra to avoid re-opening
+                activity?.intent?.removeExtra("EDIT_PRODUCT_ID")
+            }
         }
     }
 
@@ -195,20 +212,88 @@ fun CropCard(product: ProductModel, onClick: () -> Unit, onEdit: () -> Unit, onD
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = product.imageUrl,
-                contentDescription = product.name,
-                modifier = Modifier.size(70.dp).clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop,
-                placeholder = painterResource(id = R.drawable.grass),
-                error = painterResource(id = R.drawable.grass)
-            )
+            // Image with organic badge
+            Box {
+                AsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = product.name,
+                    modifier = Modifier.size(70.dp).clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.grass),
+                    error = painterResource(id = R.drawable.grass)
+                )
+                // Organic badge
+                if (product.isOrganic) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(2.dp),
+                        color = Color(0xFF4CAF50),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Eco,
+                            contentDescription = "Organic",
+                            tint = Color.White,
+                            modifier = Modifier.padding(2.dp).size(12.dp)
+                        )
+                    }
+                }
+            }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(product.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        product.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (product.isOrganic) {
+                        Spacer(Modifier.width(6.dp))
+                        Surface(
+                            color = Color(0xFFE8F5E9),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                "Organic",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF4CAF50)
+                            )
+                        }
+                    }
+                }
                 Text(product.category, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                Spacer(Modifier.height(6.dp))
-                Text("₹${String.format("%.0f", product.price)}/${product.unit}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "₹${String.format("%.0f", product.price)}/${product.unit}",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Surface(
+                        color = if (product.quantity > 10) MaterialTheme.colorScheme.primaryContainer else Color(0xFFFFEBEE),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            "${product.quantity} ${product.unit}",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (product.quantity > 10) MaterialTheme.colorScheme.primary else Color(0xFFD32F2F)
+                        )
+                    }
+                }
             }
             Box {
                 IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, "Options") }
@@ -246,20 +331,20 @@ fun AddEditProductDialog(
     val categories = listOf("Vegetable", "Fruit", "Grain", "Legume", "Spice", "Herb", "Nut", "Oilseed", "Fodder", "Other")
     val units = listOf("kg", "gram", "quintal", "ton", "piece", "dozen", "bunch", "liter", "bag")
 
-    var name by remember { mutableStateOf(product?.name ?: "") }
-    var price by remember { mutableStateOf(product?.price?.toString() ?: "") }
-    var quantity by remember { mutableStateOf(product?.quantity?.toString() ?: "") }
-    var category by remember { mutableStateOf(product?.category ?: categories[0]) }
-    var unit by remember { mutableStateOf(product?.unit ?: units[0]) }
-    var description by remember { mutableStateOf(product?.description ?: "") }
-    var isOrganic by remember { mutableStateOf(product?.isOrganic ?: false) }
-    var location by remember { mutableStateOf(product?.location ?: "") }
+    var name by remember(product?.productId) { mutableStateOf(product?.name ?: "") }
+    var price by remember(product?.productId) { mutableStateOf(product?.price?.toString() ?: "") }
+    var quantity by remember(product?.productId) { mutableStateOf(product?.quantity?.toString() ?: "") }
+    var category by remember(product?.productId) { mutableStateOf(product?.category ?: categories[0]) }
+    var unit by remember(product?.productId) { mutableStateOf(product?.unit ?: units[0]) }
+    var description by remember(product?.productId) { mutableStateOf(product?.description ?: "") }
+    var isOrganic by remember(product?.productId) { mutableStateOf(product?.isOrganic ?: false) }
+    var location by remember(product?.productId) { mutableStateOf(product?.location ?: "") }
 
     var categoryExpanded by remember { mutableStateOf(false) }
     var unitExpanded by remember { mutableStateOf(false) }
 
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
-    var imageUrl by remember { mutableStateOf(product?.imageUrl ?: "") }
+    var imageUri by remember(product?.productId) { mutableStateOf<Uri?>(null) }
+    var imageUrl by remember(product?.productId) { mutableStateOf(product?.imageUrl ?: "") }
     var isUploading by remember { mutableStateOf(false) }
 
     // Validation

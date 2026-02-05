@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -75,12 +76,29 @@ fun CattleApp(onNavigateBack: () -> Unit) {
     var cattleToEdit by remember { mutableStateOf<CattleModel?>(null) }
     var showDialog by remember { mutableStateOf(false) }
     var showAuthDialog by remember { mutableStateOf(false) }
+    
+    // Handle edit intent from details page
+    val activity = (context as? ComponentActivity)
+    val editCattleId = remember { activity?.intent?.getStringExtra("EDIT_CATTLE_ID") }
 
     LaunchedEffect(currentUser) {
         if (currentUser == null) {
             showAuthDialog = true
         } else {
             cattleViewModel.getAllCattle()
+        }
+    }
+    
+    // Open edit dialog if coming from details page
+    LaunchedEffect(editCattleId, allCattle) {
+        if (!editCattleId.isNullOrBlank() && allCattle.isNotEmpty()) {
+            val cattleToOpen = allCattle.find { it.id == editCattleId }
+            if (cattleToOpen != null) {
+                cattleToEdit = cattleToOpen
+                showDialog = true
+                // Clear the intent extra to avoid re-opening
+                activity?.intent?.removeExtra("EDIT_CATTLE_ID")
+            }
         }
     }
 
@@ -199,23 +217,83 @@ fun CattleCard(
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = cattle.imageUrl,
-                contentDescription = cattle.name,
-                modifier = Modifier.size(70.dp).clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop,
-                placeholder = painterResource(id = R.drawable.cattle),
-                error = painterResource(id = R.drawable.cattle)
-            )
+            // Image with gender indicator
+            Box {
+                AsyncImage(
+                    model = cattle.imageUrl,
+                    contentDescription = cattle.name,
+                    modifier = Modifier.size(70.dp).clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.cattle),
+                    error = painterResource(id = R.drawable.cattle)
+                )
+                // Gender badge
+                if (cattle.gender.isNotBlank()) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(2.dp),
+                        color = if (cattle.gender == "Male") Color(0xFF2196F3) else Color(0xFFE91E63),
+                        shape = CircleShape
+                    ) {
+                        Icon(
+                            if (cattle.gender == "Male") Icons.Default.Male else Icons.Default.Female,
+                            contentDescription = cattle.gender,
+                            tint = Color.White,
+                            modifier = Modifier.padding(2.dp).size(12.dp)
+                        )
+                    }
+                }
+            }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(cattle.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-                Text("${cattle.breed} - ${cattle.type}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        cattle.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (cattle.isPregnant) {
+                        Spacer(Modifier.width(6.dp))
+                        Surface(
+                            color = Color(0xFFFFE0B2),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                "🤰",
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+                Text("${cattle.breed} • ${cattle.type}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                if (cattle.tagNumber.isNotBlank()) {
+                    Text("Tag: ${cattle.tagNumber}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                }
                 Spacer(Modifier.height(4.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Age: ${cattle.age} years", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(6.dp)) {
-                        Text(cattle.healthStatus, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${cattle.age} yrs", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        if (cattle.weight > 0) {
+                            Text(" • ${cattle.weight.toInt()} kg", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        }
+                    }
+                    Surface(
+                        color = getHealthBadgeColor(cattle.healthStatus),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            cattle.healthStatus,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
                     }
                 }
             }
@@ -265,25 +343,34 @@ fun AddEditCattleDialog(
         "Other" to listOf("Mixed Breed", "Unknown", "Other")
     )
     val genderOptions = listOf("Male", "Female")
+    val vaccinationStatuses = listOf("Up to date", "Pending", "Overdue", "Not vaccinated")
+    val feedTypes = listOf("Green fodder", "Dry fodder", "Concentrate", "Mixed feed", "Grazing", "Other")
 
-    var name by remember { mutableStateOf(cattle?.name ?: "") }
-    var type by remember { mutableStateOf(cattle?.type ?: cattleTypes[0]) }
-    var breed by remember { mutableStateOf(cattle?.breed ?: "") }
-    var age by remember { mutableStateOf(if (isEditing) cattle?.age.toString() else "") }
-    var healthStatus by remember { mutableStateOf(cattle?.healthStatus ?: healthStatuses[0]) }
-    var lastCheckup by remember { mutableStateOf(cattle?.lastCheckup ?: "") }
-    var gender by remember { mutableStateOf("Female") }
-    var weight by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var name by remember(cattle?.id) { mutableStateOf(cattle?.name ?: "") }
+    var type by remember(cattle?.id) { mutableStateOf(cattle?.type ?: cattleTypes[0]) }
+    var breed by remember(cattle?.id) { mutableStateOf(cattle?.breed ?: "") }
+    var age by remember(cattle?.id) { mutableStateOf(if (isEditing && cattle?.age != null) cattle.age.toString() else "") }
+    var healthStatus by remember(cattle?.id) { mutableStateOf(cattle?.healthStatus ?: healthStatuses[0]) }
+    var lastCheckup by remember(cattle?.id) { mutableStateOf(cattle?.lastCheckup ?: "") }
+    var gender by remember(cattle?.id) { mutableStateOf(cattle?.gender?.ifBlank { "Female" } ?: "Female") }
+    var weight by remember(cattle?.id) { mutableStateOf(if (isEditing && cattle?.weight != null && cattle.weight > 0) cattle.weight.toString() else "") }
+    var notes by remember(cattle?.id) { mutableStateOf(cattle?.notes ?: "") }
+    var tagNumber by remember(cattle?.id) { mutableStateOf(cattle?.tagNumber ?: "") }
+    var vaccinationStatus by remember(cattle?.id) { mutableStateOf(cattle?.vaccinationStatus ?: vaccinationStatuses[0]) }
+    var milkProduction by remember(cattle?.id) { mutableStateOf(if (isEditing && cattle?.milkProduction != null && cattle.milkProduction > 0) cattle.milkProduction.toString() else "") }
+    var feedType by remember(cattle?.id) { mutableStateOf(cattle?.feedType ?: "") }
+    var isPregnant by remember(cattle?.id) { mutableStateOf(cattle?.isPregnant ?: false) }
 
     var typeExpanded by remember { mutableStateOf(false) }
     var breedExpanded by remember { mutableStateOf(false) }
     var healthExpanded by remember { mutableStateOf(false) }
     var genderExpanded by remember { mutableStateOf(false) }
+    var vaccinationExpanded by remember { mutableStateOf(false) }
+    var feedExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
-    var imageUrl by remember { mutableStateOf(cattle?.imageUrl ?: "") }
+    var imageUri by remember(cattle?.id) { mutableStateOf<Uri?>(null) }
+    var imageUrl by remember(cattle?.id) { mutableStateOf(cattle?.imageUrl ?: "") }
     var isUploading by remember { mutableStateOf(false) }
 
     // Validation
@@ -583,6 +670,19 @@ fun AddEditCattleDialog(
 
                 Spacer(Modifier.height(12.dp))
 
+                // Tag Number
+                OutlinedTextField(
+                    value = tagNumber,
+                    onValueChange = { tagNumber = it },
+                    label = { Text("Tag/ID Number") },
+                    leadingIcon = { Icon(Icons.Default.Tag, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("e.g., COW-2024-001") }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
                 // Weight (optional)
                 OutlinedTextField(
                     value = weight,
@@ -596,6 +696,86 @@ fun AddEditCattleDialog(
                 )
 
                 Spacer(Modifier.height(12.dp))
+
+                // Milk Production (for dairy animals)
+                if (type in listOf("Cow", "Buffalo", "Goat")) {
+                    OutlinedTextField(
+                        value = milkProduction,
+                        onValueChange = { if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) milkProduction = it },
+                        label = { Text("Daily Milk Production (liters)") },
+                        leadingIcon = { Icon(Icons.Default.WaterDrop, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("Optional - for dairy animals") }
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+
+                // Vaccination Status Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = vaccinationExpanded,
+                    onExpandedChange = { vaccinationExpanded = !vaccinationExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = vaccinationStatus,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Vaccination Status") },
+                        leadingIcon = { Icon(Icons.Default.Vaccines, contentDescription = null, tint = Color(0xFF4CAF50)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vaccinationExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = vaccinationExpanded,
+                        onDismissRequest = { vaccinationExpanded = false }
+                    ) {
+                        vaccinationStatuses.forEach { status ->
+                            DropdownMenuItem(
+                                text = { Text(status) },
+                                onClick = { vaccinationStatus = status; vaccinationExpanded = false }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Pregnancy switch (for female animals)
+                if (gender == "Female") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isPregnant) Color(0xFFFFF3E0) else Color(0xFFF5F5F5))
+                            .clickable { isPregnant = !isPregnant }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.ChildCare,
+                                contentDescription = null,
+                                tint = if (isPregnant) Color(0xFFFF9800) else Color.Gray
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Pregnant", fontWeight = FontWeight.Medium)
+                                Text("Mark if expecting", fontSize = 12.sp, color = Color.Gray)
+                            }
+                        }
+                        Switch(
+                            checked = isPregnant,
+                            onCheckedChange = { isPregnant = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFFFF9800),
+                                checkedTrackColor = Color(0xFFFFCC80)
+                            )
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
 
                 // Notes
                 OutlinedTextField(
@@ -621,7 +801,14 @@ fun AddEditCattleDialog(
                         age = age.toIntOrNull() ?: 0,
                         healthStatus = healthStatus,
                         lastCheckup = lastCheckup,
-                        imageUrl = imageUrl
+                        imageUrl = imageUrl,
+                        gender = gender,
+                        weight = weight.toDoubleOrNull() ?: 0.0,
+                        tagNumber = tagNumber.trim(),
+                        vaccinationStatus = vaccinationStatus,
+                        milkProduction = milkProduction.toDoubleOrNull() ?: 0.0,
+                        notes = notes.trim(),
+                        isPregnant = isPregnant
                     ))
                 },
                 enabled = isFormValid && !isUploading,
@@ -638,6 +825,16 @@ fun AddEditCattleDialog(
             }
         }
     )
+}
+
+fun getHealthBadgeColor(status: String): Color {
+    return when (status.lowercase()) {
+        "healthy" -> Color(0xFF4CAF50)
+        "sick", "quarantine" -> Color(0xFFF44336)
+        "under treatment", "recovering" -> Color(0xFFFF9800)
+        "pregnant", "lactating" -> Color(0xFF2196F3)
+        else -> Color(0xFF9E9E9E)
+    }
 }
 
 @Composable

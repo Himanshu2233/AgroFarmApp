@@ -16,13 +16,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -43,8 +43,8 @@ class LoginScreen : ComponentActivity() {
         super.onCreate(savedInstanceState)
         ThemeManager.init(this)
         setContent {
-            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
-            AgroFarmTheme(darkTheme = isDarkMode) {
+            // Always use light theme for login screen
+            AgroFarmTheme(darkTheme = false) {
                 Login()
             }
         }
@@ -90,7 +90,7 @@ fun Login() {
                 onValueChange = { email = it },
                 label = { Text("Email Address") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email", tint = Color(0xFF4CAF50)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("emailField"),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
@@ -117,7 +117,7 @@ fun Login() {
                         )
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("passwordField"),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
                 visualTransformation = if (visibility) VisualTransformation.None else PasswordVisualTransformation(),
@@ -166,7 +166,7 @@ fun Login() {
                         Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
                     }
                 },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp).testTag("loginButton"),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 shape = RoundedCornerShape(12.dp),
                 enabled = !isLoading
@@ -190,7 +190,7 @@ fun Login() {
                     text = "Sign up",
                     color = Color(0xFF4CAF50),
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { context.startActivity(Intent(context, RegisterScreen::class.java)) }
+                    modifier = Modifier.clickable { context.startActivity(Intent(context, RegisterScreen::class.java)) }.testTag("registerButton")
                 )
             }
             

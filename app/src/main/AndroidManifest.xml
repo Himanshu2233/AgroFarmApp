@@ -17,6 +17,16 @@
         android:theme="@style/Theme.AgroFarm"
         tools:replace="android:fullBackupContent">
         <activity
+            android:name=".view.InventoryDetailsActivity"
+            android:exported="false"
+            android:label="Inventory Details"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
+            android:name=".view.InventoryActivity"
+            android:exported="false"
+            android:label="Inventory"
+            android:theme="@style/Theme.AgroFarm" />
+        <activity
             android:name=".view.CattleDetailsActivity"
             android:exported="false"
             android:label="@string/title_activity_cattle_details"

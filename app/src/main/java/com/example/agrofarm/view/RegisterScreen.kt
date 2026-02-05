@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -44,8 +43,8 @@ class RegisterScreen : ComponentActivity() {
         super.onCreate(savedInstanceState)
         ThemeManager.init(this)
         setContent {
-            val isDarkMode by ThemeManager.isDarkMode.collectAsState()
-            AgroFarmTheme(darkTheme = isDarkMode) {
+            // Always use light theme for register screen
+            AgroFarmTheme(darkTheme = false) {
                 RegisterContent()
             }
         }

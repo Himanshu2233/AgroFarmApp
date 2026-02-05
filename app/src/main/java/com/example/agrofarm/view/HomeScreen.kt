@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -135,7 +136,7 @@ fun HomeContent(
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().testTag("CropBtn"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     FeatureCard("Crops", R.drawable.crop, Modifier.weight(1f)) {
                         context.startActivity(Intent(context, CropsActivity::class.java))
                     }
@@ -145,7 +146,7 @@ fun HomeContent(
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     FeatureCard("Inventory", R.drawable.inventory, Modifier.weight(1f)) {
-                        context.startActivity(Intent(context, CropsActivity::class.java)) // Placeholder
+                        context.startActivity(Intent(context, InventoryActivity::class.java))
                     }
                     FeatureCard("Cattle", R.drawable.cattle, Modifier.weight(1f)) {
                         context.startActivity(Intent(context, CattleActivity::class.java))
